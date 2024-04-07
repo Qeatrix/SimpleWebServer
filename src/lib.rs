@@ -1,5 +1,8 @@
 use std::{thread, sync::{mpsc, Arc, Mutex}};
 
+mod verbose;
+type VerboseItem = verbose::Logger;
+
 
 pub struct ThreadPool
 {
@@ -53,7 +56,7 @@ impl Drop for ThreadPool
 
         for worker in &mut self.workers
         {
-            println!("Shutting down worker {}", worker.id);
+            VerboseItem::printmsg(VerboseItem::Worker, format!("Shutting down worker [{}]", worker.id));
 
             if let Some(thread) = worker.thread.take()
             {
@@ -82,13 +85,13 @@ impl Worker
             {
                 Ok(job) =>
                 {
-                    println!("Worker {id} got a job, executing.");
+                    VerboseItem::printmsg(VerboseItem::Worker, format!("Worker [{}] got a job, executing", id));
 
                     job();
                 }
                 Err(_) =>
                 {
-                    println!("Worker {id} disconnected; shutting down.");
+                    VerboseItem::printmsg(VerboseItem::Worker, format!("Worker [{}] disconnected, shutting down", id));
                     break;
                 }
             }
