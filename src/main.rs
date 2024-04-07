@@ -16,6 +16,8 @@ const DEFAULT_RESPONSE_HTML: &str = "response.html";
 fn main()
 {
     let listener = TcpListener::bind(BIND_ADDRESS).expect(&format!("Cannot start the server on {}", BIND_ADDRESS));
+    VerboseItem::printmsg(VerboseItem::Info, format!("Server is started on {}", BIND_ADDRESS));
+
     let pool = ThreadPool::new(4);
 
     for stream in listener.incoming()

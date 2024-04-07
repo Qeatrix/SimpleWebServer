@@ -30,14 +30,14 @@ impl Logger
 
         match self
         {
-            Logger::Request => println!("{:?} [{}] > {}", timestamp, Self::build_color("REQUEST", Colors::Green as u32), msg),
-            Logger::Thread => println!("{:?} [{}]  > {}", timestamp, Self::build_color("THREAD", Colors::Yellow as u32), msg),
-            Logger::Worker => println!("{:?} [{}]  > {}", timestamp, Self::build_color("WORKER", Colors::Blue as u32), msg),
-            Logger::Info => println!("{:?} [{}]    > {}", timestamp, Self::build_color("INFO", Colors::White as u32), msg),
-            Logger::RequestErr => println!("{:?} [{}][{}] > {}", timestamp, Self::build_color("REQUEST", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
-            Logger::ThreadErr => println!("{:?} [{}][{}]  > {}", timestamp, Self::build_color("THREAD", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
-            Logger::WorkerErr => println!("{:?} [{}][{}]  > {}", timestamp, Self::build_color("WORKER", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
-            Logger::InfoErr => println!("{:?} [{}][{}]    > {}", timestamp, Self::build_color("INFO", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
+            Logger::Request => println!("{:?} [{}] > {}", timestamp, Self::build_color("REQ", Colors::Green as u32), msg),
+            Logger::Thread => println!("{:?} [{}] > {}", timestamp, Self::build_color("THR", Colors::Yellow as u32), msg),
+            Logger::Worker => println!("{:?} [{}] > {}", timestamp, Self::build_color("WOR", Colors::Blue as u32), msg),
+            Logger::Info => println!("{:?} [{}] > {}", timestamp, Self::build_color("INF", Colors::White as u32), msg),
+            Logger::RequestErr => println!("{:?} [{}][{}] > {}", timestamp, Self::build_color("REQ", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
+            Logger::ThreadErr => println!("{:?} [{}][{}] > {}", timestamp, Self::build_color("THR", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
+            Logger::WorkerErr => println!("{:?} [{}][{}] > {}", timestamp, Self::build_color("WOR", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
+            Logger::InfoErr => println!("{:?} [{}][{}] > {}", timestamp, Self::build_color("INF", Colors::Red as u32), Self::build_color("ERR", Colors::Red as u32), msg),
         }
     }
 
