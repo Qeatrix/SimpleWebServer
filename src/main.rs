@@ -1,17 +1,24 @@
-use std::{
+use std::
+{
   net::{TcpListener, TcpStream},
   io::{BufReader, BufRead, Write, ErrorKind}, fs,
-  env,
+  env, time::Duration,
 };
+
+mod limiter;
+use limiter::Limiter;
+
+mod logger;
+use logger::Logger;
 
 use webserver::ThreadPool;
 
 mod config;
-mod verbose;
-type VerboseItem = verbose::Logger;
 
 
 const BIND_ADDRESS: &str = "127.0.0.1:7878";
+const MAX_REQUESTS: u32 = 100;
+const MAX_REQUESTS_WINDOW_DURATION: Duration = Duration::from_secs(3600);
 
 
 fn main()
@@ -20,13 +27,33 @@ fn main()
     let config = config::Config::build(&args);
 
     let listener = TcpListener::bind(BIND_ADDRESS).expect(&format!("Cannot start the server on {}", BIND_ADDRESS));
-    VerboseItem::printmsg(VerboseItem::Info, format!("Server is started on {}", BIND_ADDRESS));
+    Logger::printmsg(Logger::Info, format!("Server is started on {}", BIND_ADDRESS));
 
-    let pool = ThreadPool::new(4);
+    let rate_limiter = Limiter::new(MAX_REQUESTS, MAX_REQUESTS_WINDOW_DURATION);
+
+    let pool = ThreadPool::new(20);
 
     for stream in listener.incoming()
     {
         let stream = stream.unwrap();
+
+        let mut stream_peer = stream.peer_addr().unwrap().to_string();
+        stream_peer = match Limiter::extract_address(stream_peer)
+        {
+            Some(result) => result,
+            _ => {
+                Logger::printmsg(Logger::InfoErr, String::from("Couldn't extract the ip address."));
+                continue;
+            },
+        };
+
+        let stream_peer_limit = Limiter::check(&rate_limiter, &stream_peer);
+        if stream_peer_limit == false
+        {
+            Logger::printmsg(Logger::Info, String::from(format!("Request has been locked from {}", stream_peer)));
+            continue;
+        };
+
         let path = config.file_path.clone();
 
         pool.execute(|| 
@@ -51,22 +78,23 @@ fn handle_connection(mut stream: TcpStream, path: String) -> Result<(), String>
 
     if full_request.len() == 0
     {
-        VerboseItem::printmsg(VerboseItem::RequestErr, String::from("Got zero length request"));
+        Logger::printmsg(Logger::RequestErr, String::from("Got zero length request"));
         return Ok(());
     }
 
     let request_method = &full_request[0];
 
 
-    VerboseItem::printmsg(VerboseItem::Request, format!("Connection established to {}", &stream.peer_addr().unwrap()));
     //println!("Method: {}\nResonse: {:#?}", request_method, full_request);
     
     let (status_line, filename) = if request_method == "GET / HTTP/1.1"
     {
-        ("HTTP/1.1 200 OK", path + "response.html")
+        Logger::printmsg(Logger::Request, format!("Connection established to {}, responsed with \"200 OK\"", &stream.peer_addr().unwrap()));
+        ("HTTP/1.1 200 OK", path + "index.html")
     }
     else
     {
+        Logger::printmsg(Logger::Request, format!("Connection established to {}, responsed with \"404 NOT FOUND\"", &stream.peer_addr().unwrap()));
         ("HTTP/1.1 404 NOT FOUND", path + "404.html")
     };
 
