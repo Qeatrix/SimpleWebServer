@@ -2,7 +2,8 @@ use std::
 {
   net::{TcpListener, TcpStream},
   io::{BufReader, BufRead, Write, ErrorKind}, fs,
-  env, time::Duration,
+  env, time::Duration, thread,
+  sync::Arc,
 };
 
 mod limiter;
@@ -17,8 +18,13 @@ mod config;
 
 
 const BIND_ADDRESS: &str = "127.0.0.1:7878";
+
+// Limiter settings
 const MAX_REQUESTS: u32 = 100;
 const MAX_REQUESTS_WINDOW_DURATION: Duration = Duration::from_secs(3600);
+const LIMITER_CLEAN_DELAY: Duration = Duration::from_secs(3600);
+const LIMITER_CLEAN_ELAPSED: Duration = Duration::from_secs(3600);
+const LIMITER_CLEAN_MAXSIZE: usize = 150;
 
 
 fn main()
@@ -29,7 +35,10 @@ fn main()
     let listener = TcpListener::bind(BIND_ADDRESS).expect(&format!("Cannot start the server on {}", BIND_ADDRESS));
     Logger::printmsg(Logger::Info, format!("Server is started on {}", BIND_ADDRESS));
 
-    let rate_limiter = Limiter::new(MAX_REQUESTS, MAX_REQUESTS_WINDOW_DURATION);
+    let rate_limiter = Arc::new(Limiter::new(MAX_REQUESTS, MAX_REQUESTS_WINDOW_DURATION));
+
+    let rate_limiter_clone = rate_limiter.clone();
+    thread::spawn(move || rate_limiter_clone.clean_hashmap(LIMITER_CLEAN_DELAY, LIMITER_CLEAN_MAXSIZE, LIMITER_CLEAN_ELAPSED));
 
     let pool = ThreadPool::new(20);
 
@@ -47,7 +56,7 @@ fn main()
             },
         };
 
-        let stream_peer_limit = Limiter::check(&rate_limiter, &stream_peer);
+        let stream_peer_limit = rate_limiter.check(&stream_peer);
         if stream_peer_limit == false
         {
             Logger::printmsg(Logger::Info, String::from(format!("Request has been locked from {}", stream_peer)));
