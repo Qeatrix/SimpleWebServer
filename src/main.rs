@@ -59,7 +59,7 @@ fn main()
         let stream_peer_limit = rate_limiter.check(&stream_peer);
         if stream_peer_limit == false
         {
-            Logger::printmsg(Logger::Info, String::from(format!("Request has been locked from {}", stream_peer)));
+            Logger::printmsg(Logger::Info, String::from(format!("Request has been blocked from {}", stream_peer)));
             continue;
         };
 
