@@ -2,7 +2,7 @@ use std::
 {
   net::{TcpListener, TcpStream},
   io::{BufReader, BufRead, Write, ErrorKind}, fs,
-  env, time::Duration, thread,
+  env, time::Duration,
   sync::Arc,
 };
 
@@ -24,7 +24,7 @@ const MAX_REQUESTS: u32 = 100;
 const MAX_REQUESTS_WINDOW_DURATION: Duration = Duration::from_secs(3600);
 const LIMITER_CLEAN_DELAY: Duration = Duration::from_secs(3600);
 const LIMITER_CLEAN_ELAPSED: Duration = Duration::from_secs(3600);
-const LIMITER_CLEAN_MAXSIZE: usize = 150;
+const LIMITER_CLEAN_MAXSIZE: usize = 1;
 
 
 fn main()
@@ -36,9 +36,7 @@ fn main()
     Logger::printmsg(Logger::Info, format!("Server is started on {}", BIND_ADDRESS));
 
     let rate_limiter = Arc::new(Limiter::new(MAX_REQUESTS, MAX_REQUESTS_WINDOW_DURATION));
-
-    let rate_limiter_clone = rate_limiter.clone();
-    thread::spawn(move || rate_limiter_clone.clean_hashmap(LIMITER_CLEAN_DELAY, LIMITER_CLEAN_MAXSIZE, LIMITER_CLEAN_ELAPSED));
+    rate_limiter.run_clean_cycle(LIMITER_CLEAN_DELAY, LIMITER_CLEAN_MAXSIZE, LIMITER_CLEAN_ELAPSED, Arc::clone(&rate_limiter));
 
     let pool = ThreadPool::new(20);
 
@@ -59,7 +57,7 @@ fn main()
         let stream_peer_limit = rate_limiter.check(&stream_peer);
         if stream_peer_limit == false
         {
-            Logger::printmsg(Logger::Info, String::from(format!("Request has been blocked from {}", stream.peer_addr().unwrap().to_string())));
+            Logger::printmsg(Logger::Info, format!("Request has been blocked from {}", stream.peer_addr().unwrap().to_string()));
             continue;
         };
 
@@ -113,9 +111,9 @@ fn handle_connection(mut stream: TcpStream, path: String) -> Result<(), String>
         Err(error) => match error.kind()
         {
             ErrorKind::NotFound => {
-                return Err(String::from(format!("File \"{}\" not found in this directory.", filename)))
+                return Err(format!("File \"{}\" not found in this directory.", filename))
             }
-            _ => return Err(String::from(format!("Cannot open the file \"{}\".", filename))),
+            _ => return Err(format!("Cannot open the file \"{}\".", filename)),
         }
     };
 

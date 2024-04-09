@@ -2,7 +2,7 @@ use std::
 {
     collections::HashMap,
     time::{Instant, Duration},
-    sync::{Arc, Mutex, RwLock}, thread,
+    sync::{Arc, RwLock}, thread,
 };
 
 use crate::logger::Logger;
@@ -11,7 +11,7 @@ use crate::logger::Logger;
 #[derive(Debug)]
 pub struct Limiter
 {
-    request: Arc<RwLock<HashMap<String, Mutex<(Instant, u32)>>>>,
+    request: Arc<RwLock<HashMap<String, (Instant, u32)>>>,
     max_requests: u32,
     window: Duration,
 }
@@ -32,33 +32,40 @@ impl Limiter
     {
         let requests = Arc::clone(&self.request);
 
-        let map_data = requests.read().expect("RwLock poisoned");
-        if let Some(value) = map_data.get(address)
+        // Read phase: Lookup the entry
+        let entry = 
         {
-            let mut value = value.lock().expect("Mutex poisoned");
+            let map_data = requests.read().expect("RwLock poisoned");
+            map_data.get(address).cloned()
+        };
 
-            if value.0.elapsed() > self.window
+        if let Some(entry) = entry 
+        {
+            // Get write lock if entry found
+            let mut map_data = requests.write().expect("RwLock poisoned");
+
+            if entry.0.elapsed() > self.window
             {
-                *value = (Instant::now(), 1);
-                return true
+                let entry = map_data.entry(address.to_string()).or_insert((Instant::now(), 0));
+                *entry = (Instant::now(), 1);
+                true
             }
-            else if value.1 < self.max_requests
+            else if entry.1 < self.max_requests
             {
-                *value = (Instant::now(), value.1 + 1);
-                return true
+                let entry = map_data.entry(address.to_string()).or_insert((Instant::now(), 0));
+                *entry = (Instant::now(), entry.1 + 1);
+                true
             }
             else
             {
-                return false
+                false
             }
-
         }
         else
         {
-            drop(map_data);
+            let mut map_data = requests.write().expect("RwLock poisoned");
 
-            // Create new entry in hashmap
-            requests.write().expect("RwLock poisoned").insert(address.to_string(), Mutex::new((Instant::now(), 0)));
+            map_data.entry(address.to_string()).or_insert((Instant::now(), 0));
             true
         }
     }
@@ -75,45 +82,48 @@ impl Limiter
         Some(peer)
     }
 
-    pub fn clean_hashmap(&self, delay: Duration, max_size: usize, clear_time: Duration)
+    pub fn run_clean_cycle(&self,
+                         delay: Duration,
+                         max_size: usize,
+                         clear_time: Duration,
+                         rate_limiter: Arc<Limiter>,
+                        )
     {
-        loop
+        thread::spawn(move ||
         {
-            thread::sleep(delay);
-            let mut cleaned_count = 0;
-
+            loop 
             {
-                Logger::printmsg(Logger::Info, format!("Trying to clean rate limiter hashmap..."));
-
-                let requests = Arc::clone(&self.request);
-                let mut keys_to_remove = Vec::new();
-
+                thread::sleep(delay);
+                let mut cleaned_count = 0;
                 {
-                    let map_data = requests.read().expect("RwLock poisoned");
-                    if map_data.len() >= max_size
+                    Logger::printmsg(Logger::Info, format!("Trying to clean rate limiter hashmap..."));
+
+                    let requests = Arc::clone(&rate_limiter.request);
+                    let mut keys_to_remove = Vec::new();
+
                     {
-                        for (key, value) in map_data.iter()
+                        let map_data = requests.read().expect("RwLock poisoned");
+                        if map_data.len() >= max_size
                         {
-                            let value = value.lock().expect("Mutex poisoned");
-                            if value.0.elapsed() > clear_time
+                            for (key, value) in map_data.iter()
                             {
-                                keys_to_remove.push(key.clone());
+                                if value.0.elapsed() > clear_time
+                                {
+                                    keys_to_remove.push(key.clone());
+                                }
                             }
                         }
                     }
+
+                    let mut map_data = requests.write().expect("RwLock poisoned");
+                    for key in keys_to_remove
+                    {
+                        map_data.remove(&key);
+                        cleaned_count += 1;
+                    }
                 }
-
-                let mut map_data = requests.write().expect("RwLock poisoned");
-                for key in keys_to_remove
-                {
-                    map_data.remove(&key);
-                    cleaned_count += 1;
-                }
-
-
-                println!("{:#?}", map_data);
+                Logger::printmsg(Logger::Info, format!("Limiter hashmap cleaning: cleaned {cleaned_count} entries"));
             }
-            Logger::printmsg(Logger::Info, format!("Limiter hashmap cleaning: cleaned {cleaned_count} entries"));
-        }
+        });
     }
 }
