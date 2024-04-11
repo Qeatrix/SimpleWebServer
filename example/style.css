@@ -33,7 +33,13 @@ p {
   border-radius: 25px;
 }
 
-.message-block > img {
-  height: 50px;
+.message-block > div > img {
+  height: 100%;
   width: 50px;
+}
+
+.message-block > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }

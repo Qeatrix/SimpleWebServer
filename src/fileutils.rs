@@ -94,7 +94,7 @@ pub fn get_filename<'a>(request_method: &'a str, request_referer: Option<String>
 
                             // Remove the unnecessary address path to get clear path to included
                             // to html files
-                            result = result.replace(slice, "");
+                            result = result.replacen(slice, "", 1);
                             return (HTTP_OK_RESPONSE, result);
                         },
 
