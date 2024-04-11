@@ -9,6 +9,6 @@ Install this web server to ~/.cargo/bin/
 
 ## Run In Dev
 ```
-cargo run -- exmaple
+cargo run -- example
 ```
 Run this web server in dev environment without optimizations. Example folder contains necessary html files.
