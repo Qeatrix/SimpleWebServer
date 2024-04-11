@@ -4,7 +4,7 @@ use std::
   io::{BufReader, BufRead, Write},
   fs,
   env,
-  time::{Duration, Instant}, 
+  time::Duration, 
   sync::Arc,
 };
 
