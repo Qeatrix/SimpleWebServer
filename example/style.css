@@ -1,0 +1,39 @@
+body {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  font-variation-settings:
+    "slnt" 0;
+}
+
+h1 {
+  margin: 0;
+}
+
+p {
+  margin: 0;
+  margin-top: 7px;
+}
+
+.message-block-wrapper {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.message-block {
+  width: max-content;
+  margin: auto;
+  padding: 25px;
+  background-color: rgba(137, 213, 213, 0.5);
+  border-radius: 25px;
+}
+
+.message-block > img {
+  height: 50px;
+  width: 50px;
+}

@@ -44,40 +44,39 @@ impl Logger
                     },
                     None =>
                     {
-                        Logger::build_msgtype("FAILED TO PROCESS TIME STAMP", Colors::Red as u32)
+                        Logger::build_msgtype("FAILED TO PROCESS TIME STAMP", Colors::Red)
                     }
                 }
             },
 
             None => {
-                Logger::build_msgtype("FAILED TO PROCESS TIME STAMP", Colors::Red as u32)
+                Logger::build_msgtype("FAILED TO PROCESS TIME STAMP", Colors::Red)
             },
         };
 
 
-        let ow = 14; //msg type offset width
-
         match self
         {
-            Logger::Request => println!("{} {:>ow$} > {}", timestamp, Self::build_msgtype("REQ", Colors::Green as u32), msg),
-            Logger::Thread => println!("{} {:>ow$} > {}", timestamp, Self::build_msgtype("THR", Colors::Yellow as u32), msg),
-            Logger::Worker => println!("{} {:>ow$} > {}", timestamp, Self::build_msgtype("WOR", Colors::Blue as u32), msg),
-            Logger::Info => println!("{} {:>ow$} > {}", timestamp, Self::build_msgtype("INF", Colors::White as u32), msg),
-            Logger::RequestErr => println!("{} {:>ow$}{:>ow$} > {}", timestamp, Self::build_msgtype("REQ", Colors::Red as u32), Self::build_msgtype("ERR", Colors::Red as u32), msg),
-            Logger::ThreadErr => println!("{} {:>ow$}{:>ow$} > {}", timestamp, Self::build_msgtype("THR", Colors::Red as u32), Self::build_msgtype("ERR", Colors::Red as u32), msg),
-            Logger::WorkerErr => println!("{} {:>ow$}{:>ow$} > {}", timestamp, Self::build_msgtype("WOR", Colors::Red as u32), Self::build_msgtype("ERR", Colors::Red as u32), msg),
-            Logger::InfoErr => println!("{} {:>ow$}{:>ow$} > {}", timestamp, Self::build_msgtype("INF", Colors::Red as u32), Self::build_msgtype("ERR", Colors::Red as u32), msg),
+            Logger::Request => println!("{} {} > {}", timestamp, Self::build_msgtype("REQ", Colors::Green), msg),
+            Logger::Thread => println!("{} {} > {}", timestamp, Self::build_msgtype("THR", Colors::Yellow), msg),
+            Logger::Worker => println!("{} {} > {}", timestamp, Self::build_msgtype("WOR", Colors::Blue), msg),
+            Logger::Info => println!("{} {} > {}", timestamp, Self::build_msgtype("INF", Colors::White), msg),
+            Logger::RequestErr => println!("{} {}{} > {}", timestamp, Self::build_msgtype("REQ", Colors::Red), Self::build_msgtype("ERR", Colors::Red), msg),
+            Logger::ThreadErr => println!("{} {}{} > {}", timestamp, Self::build_msgtype("THR", Colors::Red), Self::build_msgtype("ERR", Colors::Red), msg),
+            Logger::WorkerErr => println!("{} {}{} > {}", timestamp, Self::build_msgtype("WOR", Colors::Red), Self::build_msgtype("ERR", Colors::Red), msg),
+            Logger::InfoErr => println!("{} {}{} > {}", timestamp, Self::build_msgtype("INF", Colors::Red), Self::build_msgtype("ERR", Colors::Red), msg),
         }
     }
 
-    fn build_msgtype(msg: &str, number: u32) -> String
+    fn build_msgtype(msg: &str, number: Colors) -> String
     {
         let start_type_char = '[';
         let end_type_char = ']';
 
         let mut chars = String::from("\x1b[");
         let closing_chars = "m";
-        chars.push_str(&number.to_string());
+        
+        chars.push_str(&(number as u32).to_string());
         chars.push_str(&closing_chars);
 
         chars.push_str(msg);
