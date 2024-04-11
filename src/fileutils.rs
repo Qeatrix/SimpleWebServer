@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::logger::Logger;
+
 
 const NOT_FOUND_PAGE_NAME: &str = "404.html";
 const HTTP_OK_RESPONSE: &str = "HTTP/1.1 200 OK";
@@ -59,10 +61,12 @@ pub fn get_filename<'a>(request_method: &'a str, request_referer: Option<String>
                 }
                 else
                 {
+                    // handle weird request
                     match request_referer
                     {
                         Some(value) =>
                         {
+                            // find third and last slashes
                             let mut slash_chars = Vec::new();
                             for (i, char) in value.chars().enumerate()
                             {
@@ -73,15 +77,23 @@ pub fn get_filename<'a>(request_method: &'a str, request_referer: Option<String>
                             }
 
                             let slice;
-                            if value.chars().last().unwrap() == '/'
+                            match value.chars().last()
                             {
-                                slice = &value[slash_chars[2] + 1..];
-                            }
-                            else
-                            {
-                                slice = &value[slash_chars[2] + 1..*slash_chars.last().unwrap() + 1];
+                                Some(_) => 
+                                {
+                                    // Get the unnecessary address part
+                                    slice = &value[slash_chars[2] + 1..*slash_chars.last().unwrap() + 1];
+                                },
+
+                                None => 
+                                {
+                                    Logger::printmsg(Logger::ThreadErr, format!("Failed to process non-exist path"));
+                                    return (HTTP_NOT_FOUND_RESPONSE, format!("{}{}", path, NOT_FOUND_PAGE_NAME));
+                                }
                             }
 
+                            // Remove the unnecessary address path to get clear path to included
+                            // to html files
                             result = result.replace(slice, "");
                             return (HTTP_OK_RESPONSE, result);
                         },
@@ -89,12 +101,12 @@ pub fn get_filename<'a>(request_method: &'a str, request_referer: Option<String>
                         None => (),
                     }
 
-                    return (HTTP_NOT_FOUND_RESPONSE, format!("{}{}", path, "404.html"));
+                    return (HTTP_NOT_FOUND_RESPONSE, format!("{}{}", path, NOT_FOUND_PAGE_NAME));
                 }
             }
             else
             {
-                (HTTP_NOT_FOUND_RESPONSE, format!("{}{}", path, NOT_FOUND_PAGE_NAME))
+                return (HTTP_NOT_FOUND_RESPONSE, format!("{}{}", path, NOT_FOUND_PAGE_NAME));
             }
         },
 

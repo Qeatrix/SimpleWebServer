@@ -1,7 +1,7 @@
 use std::
 {
   net::{TcpListener, TcpStream},
-  io::{BufReader, BufRead, Write},
+  io::{BufReader, BufRead, Write, ErrorKind},
   fs,
   env,
   time::Duration, 
@@ -72,16 +72,12 @@ fn main()
 
         pool.execute(|| 
         {
-            match handle_connection(stream, path)
-            {
-                Ok(()) => (),
-                Err(msg) => panic!("{}", msg),
-            }
+            handle_connection(stream, path);
         });
     }
 }
 
-fn handle_connection(stream: TcpStream, path: String) -> Result<(), String>
+fn handle_connection(stream: TcpStream, path: String)
 {
     let buf_reader = BufReader::new(&stream);
     let full_request: Vec<_> = buf_reader
@@ -94,7 +90,7 @@ fn handle_connection(stream: TcpStream, path: String) -> Result<(), String>
     if full_request.len() == 0
     {
         Logger::printmsg(Logger::RequestErr, String::from("Got zero length request"));
-        return Ok(());
+        return;
     }
 
     let request_method = &full_request[0];
@@ -124,11 +120,27 @@ fn handle_connection(stream: TcpStream, path: String) -> Result<(), String>
         {
             if req_type.contains("text") || req_type.contains("javascript")
             {
-                text_to_stream(filename, status_line, &stream);
+                match text_to_stream(filename, status_line, &stream)
+                {
+                    Ok(_) => (),
+                    Err(e) =>
+                    {
+                        Logger::printmsg(Logger::InfoErr, e);
+                        return;
+                    }
+                }
             }
             else if req_type.contains("image")
             {
-                image_to_stream(filename, req_type, status_line, &stream);
+                match image_to_stream(filename, req_type, status_line, &stream)
+                {
+                    Ok(_) => (),
+                    Err(e) =>
+                    {
+                        Logger::printmsg(Logger::InfoErr, e);
+                        return;
+                    }
+                }
             }
         },
 
@@ -138,12 +150,28 @@ fn handle_connection(stream: TcpStream, path: String) -> Result<(), String>
             {
                 fileutils::FiletypeProcessError::NoExtensionFound => {
                     Logger::printmsg(Logger::RequestErr, "No request acceptable extension found, trying to send data as text".to_string());
-                    text_to_stream(filename, status_line, &stream); 
+                    match text_to_stream(filename, status_line, &stream)
+                    {
+                        Ok(_) => (),
+                        Err(e) =>
+                        {
+                            Logger::printmsg(Logger::InfoErr, e);
+                            return;
+                        }
+                    }
                 },
 
                 fileutils::FiletypeProcessError::UnsupportedFileType => {
-                    Logger::printmsg(Logger::RequestErr, "Requested acceptable file type is unsupported, trying to send data as text".to_string());
-                    text_to_stream(filename, status_line, &stream); 
+                    Logger::printmsg(Logger::RequestErr, "Requested file type is unsupported, trying to send data as text".to_string());
+                    match text_to_stream(filename, status_line, &stream)
+                    {
+                        Ok(_) => (),
+                        Err(e) =>
+                        {
+                            Logger::printmsg(Logger::InfoErr, e);
+                            return;
+                        }
+                    }
                 }
             }
         }
@@ -154,23 +182,56 @@ fn handle_connection(stream: TcpStream, path: String) -> Result<(), String>
         Some(_) => Logger::printmsg(Logger::Request, format!("Connection established to {}, responsed with \"200 OK\"", &stream.peer_addr().unwrap())),
         None => Logger::printmsg(Logger::Request, format!("Connection established to {}, responsed with \"404 NOT FOUND\"", &stream.peer_addr().unwrap())),
     }
-
-    Ok(())
 }
 
-fn text_to_stream(filename: String, status_line: &str, mut stream: &TcpStream)
+fn text_to_stream(filename: String, status_line: &str, mut stream: &TcpStream) -> Result<(), String>
 {
-    let content = fs::read_to_string(&filename).unwrap();
+    let content = match fs::read_to_string(&filename)
+    {
+        Ok(string) => string,
+        Err(error) => match error.kind()
+        {
+            ErrorKind::NotFound => {
+                return Err(String::from(format!("The static file \"{}\" could not be found", filename)))
+            }
+            _ => return Err(String::from(format!("Cannot open the file \"{}\".", filename))),
+        }
+    };
+
     let length = content.len();
     let response = format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{content}");
-    stream.write_all(response.as_bytes()).expect("Stream was interrupted.");
+    match stream.write_all(response.as_bytes())
+    {
+        Ok(_) => return Ok(()),
+        Err(e) => return Err(format!("Writing to stream is failed: {}", e)),
+    }
 }
 
-fn image_to_stream(filename: String, req_type: String, status_line: &str, mut stream: &TcpStream)
+fn image_to_stream(filename: String, req_type: String, status_line: &str, mut stream: &TcpStream) -> Result<(), String>
 {
-    let content = fs::read(&filename).unwrap();
+    let content = match fs::read(&filename)
+    {
+        Ok(string) => string,
+        Err(error) => match error.kind()
+        {
+            ErrorKind::NotFound => {
+                return Err(String::from(format!("The static file \"{}\" could not be found", filename)))
+            }
+            _ => return Err(String::from(format!("Cannot open the file \"{}\".", filename))),
+        }
+    };
+
     let length = content.len();
     let response = format!("{status_line}\r\nContent-Length: {length}\r\nContent-Type: {req_type}\r\n\r\n");
-    stream.write(response.as_bytes()).unwrap();
-    stream.write(&content).unwrap();
+    match stream.write(response.as_bytes())
+    {
+        Ok(_) => (),
+        Err(e) => return Err(format!("Writing to stream is failed: {}", e)),
+    }
+
+    match stream.write(&content)
+    {
+        Ok(_) => return Ok(()),
+        Err(e) => return Err(format!("Writing to stream is failed: {}", e)),
+    }
 }
